@@ -137,11 +137,6 @@ class Builder {
 		return $this;
 	}
 	
-	public function varDumpParts()
-	{
-		exit(var_dump($this->parts));
-	}
-	
 	public function select($select = null)
 	{
 		$this->type = self::SELECT;
