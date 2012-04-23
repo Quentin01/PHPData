@@ -1,7 +1,7 @@
 <?php
 
-namespace PHPData\Plateform;
+namespace PHPData\Platform;
 
-class MySQL implements Platform {
+class MySQL extends AbstractPlatform {
 	
 }

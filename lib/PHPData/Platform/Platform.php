@@ -1,7 +1,9 @@
 <?php
 
-namespace PHPData\Plateform;
+namespace PHPData\Platform;
 
-interface Plateform {
-	
+interface Platform {
+	function supportLimit();
+	function supportOffset();
+	function limit($limit, $offset = null);
 }

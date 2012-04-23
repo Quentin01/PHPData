@@ -23,6 +23,7 @@ class Driver implements \PHPData\Driver\Driver {
         }
 
 		return $connnection = new \PHPData\Driver\PDO\Connection(
+			$this,
             $dsn,
             $username,
             $password,
@@ -32,7 +33,7 @@ class Driver implements \PHPData\Driver\Driver {
 	
 	public function getDatabasePlatform()
 	{
-		return new \PHPData\Plateform\MySQL();
+		return new \PHPData\Platform\MySQL();
 	}
 	
 	public function getName()

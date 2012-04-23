@@ -13,4 +13,6 @@ interface Connection {
     function rollBack();
     function errorCode();
     function errorInfo();
+    
+    function getDriver();
 }
