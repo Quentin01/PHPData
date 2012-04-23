@@ -178,7 +178,7 @@ class Builder {
 	
 	public function join($from, $table, $alias = null, $condition = null)
 	{
-		return $this->innerJoin($table, $alias, $condition);
+		return $this->innerJoin($from, $table, $alias, $condition);
 	}
 	
 	public function innerJoin($from, $table, $alias = null, $on = null)
