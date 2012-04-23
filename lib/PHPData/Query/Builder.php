@@ -176,14 +176,15 @@ class Builder {
 		));
 	}
 	
-	public function join($table, $alias = null, $condition = null)
+	public function join($from, $table, $alias = null, $condition = null)
 	{
 		return $this->innerJoin($table, $alias, $condition);
 	}
 	
-	public function innerJoin($table, $alias = null, $on = null)
+	public function innerJoin($from, $table, $alias = null, $on = null)
 	{
 		return $this->add('join', array(
+			'from' => $from,
 			'type' => 'inner',
 			'table' => $table,
 			'alias' => $alias,
@@ -191,9 +192,10 @@ class Builder {
 		), true);
 	}
 	
-	public function leftJoin($table, $alias = null, $on = null)
+	public function leftJoin($from, $table, $alias = null, $on = null)
 	{
 		return $this->add('join', array(
+			'from' => $from,
 			'type' => 'left',
 			'table' => $table,
 			'alias' => $alias,
@@ -201,9 +203,10 @@ class Builder {
 		), true);
 	}
 	
-	public function rightJoin($table, $alias = null, $on = null)
+	public function rightJoin($from, $table, $alias = null, $on = null)
 	{
 		return $this->add('join', array(
+			'from' => $from,
 			'type' => 'right',
 			'table' => $table,
 			'alias' => $alias,
@@ -339,5 +342,10 @@ class Builder {
 			return $this->parts;
 		else
 			return $this->parts[$name];
+	}
+	
+	public function query()
+	{
+		return new Query($this->connection, $this->getSQL(), $this->parts);
 	}
 }
