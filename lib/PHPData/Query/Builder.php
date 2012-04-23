@@ -82,9 +82,9 @@ class Builder {
 		
 		$query = substr($query, 0, -2) . ' FROM ';
 		
-		foreach($this->parts['from'] as $from)
+		foreach($this->parts['from'] as $table => $alias)
 		{
-			$query .= $from['table'] . ((!is_null($from['alias'])) ? ' ' . $from['alias'] : '') . ', ';
+			$query .= $table . ((!is_null($alias)) ? ' ' . $alias : '') . ', ';
 		}
 		
 		$query = substr($query, 0, -2);
@@ -172,9 +172,8 @@ class Builder {
 	public function from($table, $alias = null)
 	{
 		return $this->add('from', array(
-			'table' => $table,
-			'alias' => $alias,
-		), true);
+			$table => $alias,
+		));
 	}
 	
 	public function join($table, $alias = null, $condition = null)
