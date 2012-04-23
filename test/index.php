@@ -19,21 +19,18 @@ echo $driver->getName();
 $connection = $driver->getConnection($parameters, 'root', '');*/
 
 $connection = \PHPData\Driver\Handler::getConnection($parameters, 'root', '');
-	
-/*$statement = $connection->prepare('SELECT * FROM chat');
-$statement->execute();*/
-
-//echo var_dump($statement->fetch(PDO::FETCH_ASSOC));
 
 $builder = new \PHPData\Query\Builder($connection);
 
-$builder->select('u.username', 'u.mail')
-        ->from('users', 'u')
-        ->innerJoin('group', 'g', 'g.id = u.group')
-        ->where('u.password = :password')
-        ->andWhere('u.username = :username')
-        ->orWhere('g.id = :idgroup')
+$builder->select('c.pseudo', 'c.date')
+        ->from('chat', 'c')
+        ->where('c.pseudo = :pseudo')
         ->limit(5);
 
 
 echo $builder->getSQL();
+
+$statement = $connection->prepare($builder->getSQL());
+$statement->execute(array(':pseudo' => 'Anonyme24'));
+
+echo var_dump($statement->fetchAll(PDO::FETCH_ASSOC));

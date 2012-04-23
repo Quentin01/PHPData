@@ -75,9 +75,9 @@ class Builder {
 	{
 		$query = 'SELECT ';
 		
-		foreach($this->parts['select'] as $field => $alias)
+		foreach($this->parts['select'] as $field)
 		{
-			$query .= $field . ((!is_null($alias)) ? ' AS ' . $alias : '') . ', ';
+			$query .= $field . ' AS \'' . $field . '\', ';
 		}
 		
 		$query = substr($query, 0, -2) . ' FROM ';
@@ -97,9 +97,9 @@ class Builder {
 		}
 		
 		$query .= ((!is_null($this->parts['where'])) ? ' WHERE ' . ((string) $this->parts['where']) : '')
-                . ((!empty($this->parts['groupBy'])) ? ' GROUP BY ' . implode(', ', $this->parts['groupBy']) : '')
-                . ((!is_null($this->parts['having'])) ? ' HAVING ' . ((string) $this->parts['having']) : '')
-                . ((!empty($this->parts['orderBy'])) ? ' ORDER BY ' . implode(', ', $this->parts['orderBy']) : '')
+				. ((!empty($this->parts['groupBy'])) ? ' GROUP BY ' . implode(', ', $this->parts['groupBy']) : '')
+				. ((!is_null($this->parts['having'])) ? ' HAVING ' . ((string) $this->parts['having']) : '')
+				. ((!empty($this->parts['orderBy'])) ? ' ORDER BY ' . implode(', ', $this->parts['orderBy']) : '')
 				. ((!is_null($this->parts['limit'])) ? ' ' . $this->platform->limit($this->parts['limit'], $this->parts['offset']) : '');
 				
 		return $query;
@@ -149,7 +149,7 @@ class Builder {
 		if(is_array($select))
 			return $this->add('select', $select);
 		else
-			return $this->add('select', array_combine($args, array_fill(0, count($args), null)));
+			return $this->add('select', $args);
 	}
 	
 	public function delete($from, $alias = null)
@@ -332,5 +332,13 @@ class Builder {
 			return false;
 			
 		return $this->add('offset', $offset);
+	}
+	
+	public function getParts($name = null)
+	{
+		if(is_null($name))
+			return $this->parts;
+		else
+			return $this->parts[$name];
 	}
 }

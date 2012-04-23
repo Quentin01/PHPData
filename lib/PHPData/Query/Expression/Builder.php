@@ -10,17 +10,7 @@ class Builder {
 	const GT  = '>';
 	const GTE = '>=';
 	
-	protected $connection = null;
-	
-	public function __construct(\PHPData\Driver\Connection $connection)
-	{
-		$this->connection = $connection;
-	}
-	
-	public function quote($value, $type = null)
-	{
-		return $this->connection->quote($value, $type);
-	}
+	public function __construct() { }
 	
 	public function compositeAnd()
 	{
