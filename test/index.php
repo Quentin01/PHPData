@@ -1,36 +1,41 @@
 <?php
+use \PHPData\Entity\Manager as EntityManager;
+
 function autoload($class)
 {
-	require_once '../lib/' . str_replace('\\', '/', $class) . '.php';
+	if(file_exists($path = '../lib/' . str_replace('\\', '/', $class) . '.php'))
+		require_once $path;
+	elseif(file_exists($path = str_replace('\\', '/', $class) . '.php'))
+		require_once $path;
 }
 spl_autoload_register('autoload'); 
 
 $parameters = array(
 	'host' => 'localhost',
-	'dbname' => 'test',
+	'dbname' => 'PHPData',
 	'driver' => 'pdo_mysql',
 	'user' => 'root',
 	'password' => '',
 );
 
-/*$driver = \PHPData\Driver\Handler::getDriver('pdo_mysql');
-echo $driver->getName();
-* 
-$connection = $driver->getConnection($parameters, 'root', '');*/
+$em = new EntityManager('default', $parameters);
 
-$connection = \PHPData\Driver\Handler::getConnection($parameters, 'root', '');
+$builder = $em->createQueryBuilder();
 
-$builder = new \PHPData\Query\Builder($connection);
-
-$builder->select('c.pseudo', 'c.date')
-        ->from('chat', 'c')
-        ->where('c.pseudo = :pseudo')
+$builder->select('u.username', 'u.email', 'g.*')
+        ->from('user', 'u')
+        ->leftJoin('u', 'group', 'g', 'g.id = u.group')
+        ->where('g.name = :namegroup')
         ->limit(5);
 
 
 echo $builder->getSQL();
 
-$statement = $connection->prepare($builder->getSQL());
-$statement->execute(array(':pseudo' => 'Anonyme24'));
+$query = $builder->query();
+$statement = $query->setParameter(':namegroup', 'Admin')
+                   ->execute();
 
-echo var_dump($statement->fetchAll(PDO::FETCH_ASSOC));
+$user = $statement->fetch();
+$group = $user->group;
+
+echo '<br/>' . $user->group->name;

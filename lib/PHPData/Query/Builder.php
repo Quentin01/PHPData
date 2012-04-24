@@ -10,9 +10,8 @@ class Builder {
 	const STATE_DIRTY = 0;
 	const STATE_CLEAN = 1;
 	
-	protected $connection = null;
+	protected $entityManager = null;
 	protected $expressionBuilder = null;
-	protected $platform = null;
 	
 	protected $type = self::SELECT;
 	protected $state = self::STATE_CLEAN;
@@ -31,11 +30,10 @@ class Builder {
 		'offset' => null
 	);
 	
-	public function __construct(\PHPData\Driver\Connection $connection)
+	public function __construct(\PHPData\Entity\Manager $entityManager)
 	{
-		$this->connection = $connection;
-		$this->expressionBuilder = new Expression\Builder($this->connection);
-		$this->platform = $connection->getDriver()->getDatabasePlatform();
+		$this->entityManager = $entityManager;
+		$this->expressionBuilder = new Expression\Builder();
 	}
 	
 	public function expr()
@@ -52,6 +50,41 @@ class Builder {
 	{
 		if(!is_null($this->sql) && $this->state === self::STATE_CLEAN)
 			return $this->sql;
+			
+		foreach($this->parts['select'] as $key => $select)
+		{
+			if(strpos($select, '*') === false)
+				continue;
+			
+			$select = explode('.', $select);
+			
+			if(count($select) === 1)
+			{
+				foreach($this->parts['from'] as $table => $alias)
+				{
+					$this->addAllSelectFor($table, $alias);
+				}
+				
+				foreach($this->parts['join'] as $join)
+				{
+					$this->addAllSelectFor($join['table'], $join['alias']);
+				}
+				
+				unset($this->parts['select'][$key]);
+				break;
+			}
+			else
+			{
+				$table = $this->getTableFromAlias($select[0]);
+				
+				if($table === false)
+					$this->addAllSelectFor($select[0]);
+				else
+					$this->addAllSelectFor($table, $select[0]);
+				
+				unset($this->parts['select'][$key]);
+			}
+		}
 		
 		switch($this->type)
 		{
@@ -71,20 +104,31 @@ class Builder {
 		return $this->sql;
 	}
 	
+	public function addAllSelectFor($table, $alias = null)
+	{
+		foreach($this->entityManager->getSchema()->getColumns($table) as $column)
+		{
+			if(is_null($alias))
+				$this->add('select', $table . '.' . $column, true);
+			else
+				$this->add('select', $alias . '.' . $column, true);
+		}
+	}
+	
 	protected function getSelectSQL()
 	{
 		$query = 'SELECT ';
 		
 		foreach($this->parts['select'] as $field)
 		{
-			$query .= $field . ' AS \'' . $field . '\', ';
+			$query .= $field . ((strpos($field, '*') === false) ? ' AS \'' . $field . '\'' : '' ) . ', ';
 		}
 		
 		$query = substr($query, 0, -2) . ' FROM ';
 		
 		foreach($this->parts['from'] as $table => $alias)
 		{
-			$query .= $table . ((!is_null($alias)) ? ' ' . $alias : '') . ', ';
+			$query .= '`' . $table . '`' . ((!is_null($alias)) ? ' AS ' . $alias : '') . ', ';
 		}
 		
 		$query = substr($query, 0, -2);
@@ -92,7 +136,7 @@ class Builder {
 		foreach($this->parts['join'] as $join)
 		{
 			$query .= ' ' . strtoupper($join['type']) 
-				. ' JOIN ' . $join['table'] . ((!is_null($join['alias'])) ? ' ' . $join['alias'] : '')
+				. ' JOIN ' . '`' . $join['table'] . '`'. ((!is_null($join['alias'])) ? ' AS ' . $join['alias'] : '')
 				. ' ON ' . (string) $join['on'];
 		}
 		
@@ -100,21 +144,21 @@ class Builder {
 				. ((!empty($this->parts['groupBy'])) ? ' GROUP BY ' . implode(', ', $this->parts['groupBy']) : '')
 				. ((!is_null($this->parts['having'])) ? ' HAVING ' . ((string) $this->parts['having']) : '')
 				. ((!empty($this->parts['orderBy'])) ? ' ORDER BY ' . implode(', ', $this->parts['orderBy']) : '')
-				. ((!is_null($this->parts['limit'])) ? ' ' . $this->platform->limit($this->parts['limit'], $this->parts['offset']) : '');
+				. ((!is_null($this->parts['limit'])) ? ' ' . $this->entityManager->getDriver()->getDatabasePlatform()->limit($this->parts['limit'], $this->parts['offset']) : '');
 				
 		return $query;
 	}
 	
 	protected function getUpdateSQL()
 	{
-		return 'UPDATE ' . $this->parts[0]['from']['table'] . ($this->parts[0]['from']['alias'] ? ' ' . $this->parts[0]['from']['alias'] : '')
+		return 'UPDATE ' . $this->parts[0]['from']['table'] . ($this->parts[0]['from']['alias'] ? ' AS ' . $this->parts[0]['from']['alias'] : '')
 			. ' SET ' . implode(', ', $this->parts['set'])
 			. ((!is_null($this->parts['where'])) ? ' WHERE ' . ((string) $this->parts['where']) : '');
 	}
 	
 	protected function getDeleteSQL()
 	{
-		return 'DELETE FROM ' . $this->parts[0]['from']['table'] . ($this->parts[0]['from']['alias'] ? ' ' . $this->parts[0]['from']['alias'] : '') 
+		return 'DELETE FROM ' . $this->parts[0]['from']['table'] . ($this->parts[0]['from']['alias'] ? ' AS ' . $this->parts[0]['from']['alias'] : '') 
 			. ((!is_null($this->parts['where'])) ? ' WHERE ' . ((string) $this->parts['where']) : '');
 	}
 	
@@ -127,7 +171,7 @@ class Builder {
 			if($append)
 				$parts = array($parts);
 				
-			$this->parts[$name] = array_merge($this->parts[$name], $parts);
+			$this->parts[$name] = array_unique(array_merge($this->parts[$name], $parts));
 		}
 		else
 		{
@@ -171,6 +215,11 @@ class Builder {
 	
 	public function from($table, $alias = null)
 	{
+		if(is_null($alias))
+			$this->add('select', $table . '.id', true);
+		else
+			$this->add('select', $alias . '.id', true);
+			
 		return $this->add('from', array(
 			$table => $alias,
 		));
@@ -183,6 +232,11 @@ class Builder {
 	
 	public function innerJoin($from, $table, $alias = null, $on = null)
 	{
+		if(is_null($alias))
+			$this->add('select', $table . '.id', true);
+		else
+			$this->add('select', $alias . '.id', true);
+			
 		return $this->add('join', array(
 			'from' => $from,
 			'type' => 'inner',
@@ -194,6 +248,11 @@ class Builder {
 	
 	public function leftJoin($from, $table, $alias = null, $on = null)
 	{
+		if(is_null($alias))
+			$this->add('select', $table . '.id', true);
+		else
+			$this->add('select', $alias . '.id', true);
+			
 		return $this->add('join', array(
 			'from' => $from,
 			'type' => 'left',
@@ -205,6 +264,11 @@ class Builder {
 	
 	public function rightJoin($from, $table, $alias = null, $on = null)
 	{
+		if(is_null($alias))
+			$this->add('select', $table . '.id', true);
+		else
+			$this->add('select', $alias . '.id', true);
+			
 		return $this->add('join', array(
 			'from' => $from,
 			'type' => 'right',
@@ -314,12 +378,12 @@ class Builder {
 	
 	public function limit($limit, $offset = null)
 	{
-		if(!$this->platform->supportLimit())
+		if(!$this->entityManager->getDriver()->getDatabasePlatform()->supportLimit())
 			return false;
 			
 		if(!is_null($offset))
 		{
-			if(!$this->platform->supportOffset())
+			if(!$this->entityManager->getDriver()->getDatabasePlatform()->supportOffset())
 				return false;
 				
 			$this->add('offset', $offset);
@@ -330,7 +394,7 @@ class Builder {
 	
 	public function offset($offset)
 	{
-		if(!$this->platform->supportOffset())
+		if(!$this->entityManager->getDriver()->getDatabasePlatform()->supportOffset())
 			return false;
 			
 		return $this->add('offset', $offset);
@@ -346,6 +410,28 @@ class Builder {
 	
 	public function query()
 	{
-		return new Query($this->connection, $this->getSQL(), $this->parts);
+		if($this->state === self::STATE_DIRTY)
+			$this->getSQL();
+			
+		return new \PHPData\Query($this->entityManager, $this);
+	}
+	
+	public function getTableFromAlias($alias)
+	{
+		$table = array_search($alias, $this->parts['from']);
+		
+		if($table !== false)
+			return $table;
+			
+		 foreach($this->parts['join'] as $join)
+		 {
+			 if(!is_null($join['alias']))
+			 {
+				if(strtolower($alias) === strtolower($join['alias']))
+					return $join['table'];
+			 }
+		 }
+		 
+		 return false;
 	}
 }
